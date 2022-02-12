@@ -1,5 +1,7 @@
 ﻿using System.Net.Mime;
 using Ardalis.ListStartupServices;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 using BlazorAdmin;
 using BlazorAdmin.Services;
 using Blazored.LocalStorage;
@@ -22,15 +24,39 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddConsole();
 
-// use real database
-// Requires LocalDB which can be installed with SQL Server Express 2016
-// https://www.microsoft.com/en-us/download/details.aspx?id=54284
+//// use real database
+//// Requires LocalDB which can be installed with SQL Server Express 2016
+//// https://www.microsoft.com/en-us/download/details.aspx?id=54284
+//var client = new SecretClient(
+//    new Uri("https://aztasks6keyvault.vault.azure.net/"),
+//    new DefaultAzureCredential(new DefaultAzureCredentialOptions
+//    {
+//        ManagedIdentityClientId = "491b3aa2-7d7a-4661-8f16-b721d8051e9f"
+//    }));
+
+//KeyVaultSecret identitySecret = client.GetSecret("IdentityConnectionStr");
+//string IdentityConnection = identitySecret.Value;
+
+//KeyVaultSecret catalogSecret = client.GetSecret("CatalogConnection1");
+//string CatalogConnection = catalogSecret.Value;
+
+//// use real database
+//// Requires LocalDB which can be installed with SQL Server Express 2016
+//// https://www.microsoft.com/en-us/download/details.aspx?id=54284
+//builder.Services.AddDbContext<CatalogContext>(c =>
+//    c.UseSqlServer(CatalogConnection));
+
+//// Add Identity DbContext
+//builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+//    options.UseSqlServer(IdentityConnection));
+
 builder.Services.AddDbContext<CatalogContext>(c =>
     c.UseSqlServer(builder.Configuration.GetConnectionString("CatalogConnection")));
 
 // Add Identity DbContext
 builder.Services.AddDbContext<AppIdentityDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("IdentityConnection")));
+
 
 builder.Services.AddCookieSettings();
 

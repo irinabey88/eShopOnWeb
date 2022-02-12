@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -13,6 +15,7 @@ using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Web.Interfaces;
+using Microsoft.eShopWeb.Web.ViewModels.Order;
 
 namespace Microsoft.eShopWeb.Web.Pages.Basket;
 
@@ -52,14 +55,39 @@ public class CheckoutModel : PageModel
         {
             await SetBasketModelAsync();
 
-            if (!ModelState.IsValid)
-            {
-                return BadRequest();
-            }
+            var httpClient = new HttpClient();
+
+            var address = new Address("123 Main St.", "Kent", "OH", "United States", "44240");
+           
 
             var updateModel = items.ToDictionary(b => b.Id.ToString(), b => b.Quantity);
             await _basketService.SetQuantities(BasketModel.Id, updateModel);
-            await _orderService.CreateOrderAsync(BasketModel.Id, new Address("123 Main St.", "Kent", "OH", "United States", "44240"));
+            //await _orderService.CreateOrderAsync(data.BasketId, address);
+            List<OrderBlobModel> orderDetails = items
+                .Select(x => new OrderBlobModel { Id = x.Id, Quantity = x.Quantity })
+                .ToList();
+
+
+            var orderData = JsonSerializer.Serialize(orderDetails);
+
+            var data = new OrderRequest()
+            {
+                BasketId = BasketModel.Id,
+                City = address.City,
+                Country = address.Country,
+                ZipCode = address.ZipCode,
+                State = address.State,
+                Street = address.Street,
+                OrderDetails = orderData
+            };
+
+            await _orderService.CreateOrderAsync(
+                data.BasketId,
+                address,
+                data.OrderDetails);
+            // await SendOrder(data);
+
+
             await _basketService.DeleteBasketAsync(BasketModel.Id);
         }
         catch (EmptyBasketOnCheckoutException emptyBasketOnCheckoutException)
@@ -85,6 +113,20 @@ public class CheckoutModel : PageModel
         }
     }
 
+
+    private async Task SendOrder(OrderRequest order)
+    {
+        HttpClient client = new HttpClient();
+        client.BaseAddress = new Uri("https://azfinalapi.azurewebsites.net");
+        client.DefaultRequestHeaders.Accept.Clear();
+        client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json"));
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+        "api/order", order);
+        response.EnsureSuccessStatusCode();
+    }
+
     private void GetOrSetBasketCookieAndUserName()
     {
         if (Request.Cookies.ContainsKey(Constants.BASKET_COOKIENAME))
@@ -98,4 +140,22 @@ public class CheckoutModel : PageModel
         cookieOptions.Expires = DateTime.Today.AddYears(10);
         Response.Cookies.Append(Constants.BASKET_COOKIENAME, _username, cookieOptions);
     }
+}
+
+
+internal class OrderRequest
+{
+    public int BasketId { get; set; }
+
+    public string Street { get; set; }
+
+    public string City { get; set; }
+
+    public string State { get; set; }
+
+    public string Country { get; set; }
+
+    public string ZipCode { get; set; }
+
+    public string OrderDetails { get; set; }
 }

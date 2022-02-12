@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+using Azure.Core;
 using BlazorShared;
 using BlazorShared.Models;
 using MediatR;
@@ -30,9 +33,28 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddConsole();
 
-// use real database
-// Requires LocalDB which can be installed with SQL Server Express 2016
-// https://www.microsoft.com/en-us/download/details.aspx?id=54284
+//var client = new SecretClient(
+//    new Uri("https://aztasks6keyvault.vault.azure.net/"),
+//    new DefaultAzureCredential(new DefaultAzureCredentialOptions {
+//        ManagedIdentityClientId = "a56153c9-125c-493d-b81d-0e6a5e2679c1"
+//    }));
+
+//KeyVaultSecret identitySecret = client.GetSecret("IdentityConnectionStr");
+//string IdentityConnection = identitySecret.Value;
+
+//KeyVaultSecret catalogSecret = client.GetSecret("CatalogConnection1");
+//string CatalogConnection = catalogSecret.Value;
+
+//// use real database
+//// Requires LocalDB which can be installed with SQL Server Express 2016
+//// https://www.microsoft.com/en-us/download/details.aspx?id=54284
+//builder.Services.AddDbContext<CatalogContext>(c =>
+//    c.UseSqlServer(CatalogConnection));
+
+//// Add Identity DbContext
+//builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+//    options.UseSqlServer(IdentityConnection));
+
 builder.Services.AddDbContext<CatalogContext>(c =>
     c.UseSqlServer(builder.Configuration.GetConnectionString("CatalogConnection")));
 
@@ -46,6 +68,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(builder.Configuration.Get<CatalogSettings>()));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
@@ -87,6 +110,7 @@ builder.Services.AddCors(options =>
                       });
 });
 
+builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddControllers();
 
 builder.Services.AddMediatR(typeof(CatalogItem).Assembly);
